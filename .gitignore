@@ -1,2 +1,4 @@
 /target
 /samples
+/config
+*.txt
