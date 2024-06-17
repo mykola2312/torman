@@ -25,3 +25,28 @@ CREATE TABLE "file" (
 
     FOREIGN KEY(torrent_id)     REFERENCES "torrent"(id)
 );
+
+CREATE TABLE "category" (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    title           TEXT    NOT NULL,
+    forum_id        INTEGER NOT NULL
+);
+
+CREATE TABLE "torrent_category" (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    torrent_id      INTEGER NOT NULL,
+    category_id     INTEGER NOT NULL,
+
+    FOREIGN KEY(torrent_id)     REFERENCES "torrent"(id),
+    FOREIGN KEY(category_id)    REFERENCES "category"(id)
+);
+
+CREATE TABLE "deletion" (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    torrent_id      INTEGER NOT NULL,
+
+    FOREIGN KEY(torrent_id)     REFERENCES "torrent"(id)
+);
