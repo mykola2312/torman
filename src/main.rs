@@ -1,5 +1,5 @@
 use std::{fs::{self, DirEntry}, path::Path};
-use bencode::decode;
+use bencode::{decode, Value};
 use clap::{Parser, Subcommand};
 use rusqlite::Connection;
 
@@ -21,6 +21,41 @@ struct Args {
 
     #[command(subcommand)]
     command: Command
+}
+
+enum TorrentLogicError {
+    NoTorrentName,
+    NoInfoDict,
+    FileValueIsNotList,
+    NoPathList
+}
+
+fn get_torrent_files(torrent: &Value, hash: &str) -> Result<Vec<String>, TorrentLogicError> {
+    let info = torrent.get_value("info")
+        .ok_or(TorrentLogicError::NoInfoDict)?;
+
+    // TODO: when torrent has single file in "files" that means "name" of the torrent is dir name
+    let mut files: Vec<String> = Vec::new();
+    if let Some(file_list_value) = info.get_value("files") {
+        let file_list = file_list_value.to_list()
+            .ok_or(TorrentLogicError::FileValueIsNotList)?;
+        
+        for file_object in file_list {
+            let path_list = file_object.get_string_list("path")
+                .ok_or(TorrentLogicError::NoPathList)?;
+            // we will join with unixy / path separator since I dont want to make clusterfuck tables
+            // for multi-dimensional file list nor it would be ran on windows
+            let file_name = path_list.join("/");
+            files.push(file_name);
+        }
+    } else {
+        // when we don't have "files" list in "info" block,
+        // that means "name" of torrent is the file name
+        files.push(torrent.get_string("name")
+            .ok_or(TorrentLogicError::NoTorrentName)?);
+    }
+
+    Ok(files)
 }
 
 fn index(db: Connection, path: &String) {
@@ -111,7 +146,18 @@ fn index(db: Connection, path: &String) {
         let publisher = torrent.get_string("publisher");
         let publisher_url = torrent.get_string("publisher-url");
 
+        // get torrent files
+        // TODO: when torrent has single file in "files" that means "name" of the torrent is dir name
+        let files = match get_torrent_files(&torrent, &hash) {
+            Ok(files) => files,
+            Err(e) => {
+                eprintln!("can't get file list for {}", hash);
+                continue;
+            }
+        };
+
         dbg!(hash, name, destination, downloaded, uploaded, announce, comment, created_by, creation_date, publisher, publisher_url);
+        dbg!(files);
 
         break
     }

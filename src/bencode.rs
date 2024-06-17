@@ -16,14 +16,14 @@ pub enum Value {
 }
 
 impl Value {
-    fn to_integer(&self) -> Option<i64> {
+    pub fn to_integer(&self) -> Option<i64> {
         match self {
             Value::Integer(int) => Some(*int),
             _ => None
         }
     }
 
-    fn to_string(&self) -> Option<String> {
+    pub fn to_string(&self) -> Option<String> {
         match self {
             Value::String(str_value) => {
                 match str_value {
@@ -35,7 +35,14 @@ impl Value {
         }
     }
 
-    fn get_value(&self, key: &str) -> Option<&Value> {
+    pub fn to_list(&self) -> Option<&Vec<Value>> {
+        match self {
+            Value::List(list) => Some(list),
+            _ => None
+        }
+    }
+
+    pub fn get_value(&self, key: &str) -> Option<&Value> {
         if let Value::Dict(dict) = self {
             dict.get(&Value::String(ByteString::String(key.to_owned())))
         } else {
