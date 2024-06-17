@@ -1,4 +1,5 @@
 use std::{fs::{self, DirEntry}, path::Path};
+use bencode::decode;
 use clap::{Parser, Subcommand};
 use rusqlite::Connection;
 
@@ -7,7 +8,7 @@ mod bencode;
 #[derive(Subcommand)]
 enum Command {
     Index {
-        #[arg(short='p', long, default_value="torman.db", help="path to transmission dir with torrents and resume")]
+        #[arg(short='p', long, default_value="torman.db", help="path to transmission dir with \"torrents\" and \"resume\" dirs")]
         path: String
     }
 }
@@ -51,7 +52,68 @@ fn index(db: Connection, path: &String) {
             }
         };
 
-        println!("{}", hash);
+        // parse the resume file
+        let (resume, _) = {
+            let resume_data = match fs::read(entry.path()) {
+                Ok(data) => data,
+                Err(_) => {
+                    eprintln!("failed to read {} resume file", hash);
+                    continue
+                }
+            };
+
+            match decode(&resume_data) {
+                Ok(value) => value,
+                Err(e) => {
+                    eprintln!("failed to parse {} resume file: {:#?}", hash, e);
+                    continue
+                }
+            }
+        };
+
+        // parse the torrent file
+        let torrent_path = {
+            let mut torrent_name = hash.to_owned();
+            torrent_name.push_str(".torrent");
+
+            Path::new(path).join("torrents").join(torrent_name)
+        };
+
+        let (torrent, _) = {
+            let torrent_data = match fs::read(torrent_path) {
+                Ok(data) => data,
+                Err(_) => {
+                    eprintln!("failed to read {} torrent file", hash);
+                    continue
+                }
+            };
+
+            match decode(&torrent_data) {
+                Ok(value) => value,
+                Err(e) => {
+                    eprintln!("failed to parse {} torrent file: {:#?}", hash, e);
+                    continue
+                }
+            }
+        };
+
+        // make table row
+        let hash = hash;
+        let name = resume.get_string("name");
+        let destination = resume.get_string("destination");
+        let downloaded = resume.get_integer("downloaded");
+        let uploaded = resume.get_integer("uploaded");
+
+        let announce = torrent.get_string("announce");
+        let comment = torrent.get_string("comment");
+        let created_by = torrent.get_string("created_by");
+        let creation_date = torrent.get_integer("creation_date");
+        let publisher = torrent.get_string("publisher");
+        let publisher_url = torrent.get_string("publisher-url");
+
+        dbg!(hash, name, destination, downloaded, uploaded, announce, comment, created_by, creation_date, publisher, publisher_url);
+
+        break
     }
 }
 
