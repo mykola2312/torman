@@ -15,6 +15,73 @@ pub enum Value {
     Dict(BTreeMap<Value, Value>)
 }
 
+impl Value {
+    fn to_integer(&self) -> Option<i64> {
+        match self {
+            Value::Integer(int) => Some(*int),
+            _ => None
+        }
+    }
+
+    fn to_string(&self) -> Option<String> {
+        match self {
+            Value::String(str_value) => {
+                match str_value {
+                    ByteString::String(str) => Some(str.clone()),
+                    _ => None
+                }
+            }
+            _ => None
+        }
+    }
+
+    fn get_value(&self, key: &str) -> Option<&Value> {
+        if let Value::Dict(dict) = self {
+            dict.get(&Value::String(ByteString::String(key.to_owned())))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_integer(&self, key: &str) -> Option<i64> {
+        match self.get_value(key) {
+            Some(value) => value.to_integer(),
+            None => None
+        }
+    }
+
+    pub fn get_string(&self, key: &str) -> Option<String> {
+        match self.get_value(key) {
+            Some(value) => value.to_string(),
+            None => None
+        }
+    }
+
+    pub fn get_string_list(&self, key: &str) -> Option<Vec<String>> {
+        match self.get_value(key) {
+            Some(value) => {
+                match value {
+                    Value::List(list) => {
+                        let mut strings: Vec<String> = Vec::with_capacity(list.len());
+                        for value in list {
+                            let string = match value.to_string() {
+                                Some(string) => string,
+                                None => break
+                            };
+
+                            strings.push(string);
+                        }
+
+                        Some(strings)
+                    }
+                    _ => None
+                }
+            }
+            None => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ParseError {
     WrongType,
