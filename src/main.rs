@@ -250,6 +250,33 @@ fn scrape(db: Connection, destination: &String) {
             .unwrap()
             .as_str()
         ).unwrap();
+
+        let category_id = {
+            let result = db.query_row(
+                "SELECT id FROM category WHERE forum_id = ?1", (forum_id,),
+                |row| Ok(row.get::<usize, i64>(0)?)
+            );
+            
+            match result {
+                Ok(id) => id,
+                Err(_) => {
+                    db.query_row("INSERT INTO category (forum_id) VALUES (?) RETURNING id;",
+                        (forum_id,),
+                        |row| Ok(row.get::<usize, i64>(0)?)
+                    ).unwrap()
+                }
+            }
+        };
+
+        let result = db.execute(
+            "INSERT INTO torrent_category (torrent_id,category_id) VALUES (?,?);", 
+            (torrent.id, category_id)
+        );
+
+        match result {
+            Ok(_) => println!("torrent {} category_id {} forum_id {}", torrent.id, category_id, forum_id),
+            Err(e) => eprintln!("torrent {} torrent_category error: {:#?}", torrent.id, e)
+        }
     }
 }
 
