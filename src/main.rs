@@ -176,8 +176,31 @@ fn index(db: Connection, path: &String) {
             }
         };
 
-        dbg!(hash, name, destination, downloaded, uploaded, announce, comment, created_by, creation_date, publisher, publisher_url);
-        dbg!(files);
+        // create torrent record
+        let id = db.query_row("INSERT INTO torrent (
+            hash, name, destination,
+            downloaded, uploaded,
+            announce, comment,
+            created_by, creation_date,
+            publisher, publisher_url)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            RETURNING id;", (
+                hash, name, destination,
+                downloaded, uploaded,
+                announce, comment,
+                created_by, creation_date,
+                publisher, publisher_url
+            ),
+            |row| Ok(row.get::<usize, i64>(0)?) 
+        ).expect("insert failed");
+        // we're using here unwrap/expect since we want full program crash
+        // to debug any sql bugs
+
+        // insert torrent files
+        for file in files {
+            db.execute("INSERT INTO file (torrent_id,file_name) VALUES (?,?);", (id, file))
+            .expect("failed to insert file!");
+        }
     }
 }
 
