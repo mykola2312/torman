@@ -42,6 +42,13 @@ impl Value {
         }
     }
 
+    pub fn to_dict(&self) -> Option<&BTreeMap<Value, Value>> {
+        match self {
+            Value::Dict(dict) => Some(dict),
+            _ => None
+        }
+    }
+
     pub fn get_value(&self, key: &str) -> Option<&Value> {
         if let Value::Dict(dict) = self {
             dict.get(&Value::String(ByteString::String(key.to_owned())))
@@ -60,6 +67,20 @@ impl Value {
     pub fn get_string(&self, key: &str) -> Option<String> {
         match self.get_value(key) {
             Some(value) => value.to_string(),
+            None => None
+        }
+    }
+
+    pub fn get_list(&self, key: &str) -> Option<&Vec<Value>> {
+        match self.get_value(key) {
+            Some(value) => value.to_list(),
+            None => None
+        }
+    }
+
+    pub fn get_dict(&self, key: &str) -> Option<&BTreeMap<Value, Value>> {
+        match self.get_value(key) {
+            Some(value) => value.to_dict(),
             None => None
         }
     }
@@ -91,7 +112,6 @@ impl Value {
 
 #[derive(Debug)]
 pub enum ParseError {
-    WrongType,
     UtfError,
     ConvertError,
     NoTerminator

@@ -23,36 +23,57 @@ struct Args {
     command: Command
 }
 
+#[derive(Debug)]
 enum TorrentLogicError {
     NoTorrentName,
     NoInfoDict,
-    FileValueIsNotList,
     NoPathList
 }
 
-fn get_torrent_files(torrent: &Value, hash: &str) -> Result<Vec<String>, TorrentLogicError> {
+fn get_torrent_files(torrent: &Value) -> Result<Vec<String>, TorrentLogicError> {
     let info = torrent.get_value("info")
         .ok_or(TorrentLogicError::NoInfoDict)?;
 
-    // TODO: when torrent has single file in "files" that means "name" of the torrent is dir name
     let mut files: Vec<String> = Vec::new();
-    if let Some(file_list_value) = info.get_value("files") {
-        let file_list = file_list_value.to_list()
-            .ok_or(TorrentLogicError::FileValueIsNotList)?;
-        
-        for file_object in file_list {
-            let path_list = file_object.get_string_list("path")
+    if let Some(file_list_v1) = info.get_list("files") {
+        // multiple files v1
+        let root = info.get_string("name")
+            .ok_or(TorrentLogicError::NoTorrentName)?;
+        for file_object in file_list_v1 {
+            let mut path_list = file_object.get_string_list("path")
                 .ok_or(TorrentLogicError::NoPathList)?;
-            // we will join with unixy / path separator since I dont want to make clusterfuck tables
-            // for multi-dimensional file list nor it would be ran on windows
-            let file_name = path_list.join("/");
-            files.push(file_name);
+            
+            path_list.insert(0, root.clone());
+            files.push(path_list.join("/"));
+        }
+    } else if let Some(file_dict_v2) = info.get_dict("file tree") {
+        // single file / multiple files v2
+        let root = info.get_string("name")
+            .ok_or(TorrentLogicError::NoTorrentName)?;
+        
+        let files_v2: Vec<String> = file_dict_v2
+            .keys()
+            .into_iter()
+            .filter_map(|k| k.to_string())
+            .collect();
+        if files_v2.len() > 1 {
+            // multiple
+            for file in files_v2 {
+                let mut path = root.clone();
+                path.push_str("/");
+                path.push_str(&file);
+                
+                files.push(path); 
+            }
+        } else {
+            // single
+            files.push(files_v2.first().unwrap().clone());
         }
     } else {
-        // when we don't have "files" list in "info" block,
-        // that means "name" of torrent is the file name
-        files.push(torrent.get_string("name")
-            .ok_or(TorrentLogicError::NoTorrentName)?);
+        // single file v1
+        let single = info.get_string("name")
+            .ok_or(TorrentLogicError::NoTorrentName)?;
+        files.push(single);
     }
 
     Ok(files)
@@ -147,19 +168,16 @@ fn index(db: Connection, path: &String) {
         let publisher_url = torrent.get_string("publisher-url");
 
         // get torrent files
-        // TODO: when torrent has single file in "files" that means "name" of the torrent is dir name
-        let files = match get_torrent_files(&torrent, &hash) {
+        let files = match get_torrent_files(&torrent) {
             Ok(files) => files,
             Err(e) => {
-                eprintln!("can't get file list for {}", hash);
+                eprintln!("can't get file list for {}: {:#?}", hash, e);
                 continue;
             }
         };
 
         dbg!(hash, name, destination, downloaded, uploaded, announce, comment, created_by, creation_date, publisher, publisher_url);
         dbg!(files);
-
-        break
     }
 }
 
