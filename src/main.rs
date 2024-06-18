@@ -1,4 +1,4 @@
-use std::{fs::{self, DirEntry}, path::Path, env};
+use std::{env, fmt::Debug, fs::{self, DirEntry}, path::Path};
 use bencode::{decode, Value};
 use clap::{Parser, Subcommand};
 use rusqlite::Connection;
@@ -11,6 +11,11 @@ enum Command {
     Index {
         #[arg(short='p', long, default_value="torman.db", help="path to transmission dir with \"torrents\" and \"resume\" dirs")]
         path: String
+    },
+
+    Scrape {
+        #[arg(short='f', long, help="filter torrents by their destination field")]
+        destination: String
     }
 }
 
@@ -205,6 +210,27 @@ fn index(db: Connection, path: &String) {
     }
 }
 
+struct FilteredTorrent {
+    pub id: i64,
+    pub publisher_url: String
+}
+
+fn scrape(db: Connection, destination: &String) {
+    let mut stmt = db.prepare("SELECT id,publisher_url FROM torrent WHERE destination = ?1;").unwrap();
+    let torrents = stmt.query_map([destination], |row| {
+        Ok(FilteredTorrent {
+            id: row.get(0)?,
+            publisher_url: row.get(1)?
+        })
+    })
+    .expect("query_map")
+    .filter_map(|f| f.ok());
+
+    for torrent in torrents {
+        dbg!(torrent.id, torrent.publisher_url);
+    }
+}
+
 fn main() {
     dotenv().ok();
     let args = Args::parse();
@@ -213,6 +239,9 @@ fn main() {
     match &args.command {
         Command::Index { path } => {
             index(db, path);
+        },
+        Command::Scrape { destination } => {
+            scrape(db, destination);
         }
     }
 }
