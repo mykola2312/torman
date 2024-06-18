@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.7", features = ["derive"] }
 dotenv = "0.15.0"
-reqwest = "0.12.5"
+regex = "1.10.5"
+reqwest = { version = "0.12.5", features = ["blocking"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 scraper = "0.19.0"

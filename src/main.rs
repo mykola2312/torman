@@ -1,8 +1,10 @@
-use std::{env, fmt::Debug, fs::{self, DirEntry}, path::Path};
+use std::{fmt::Debug, fs::{self, DirEntry}, path::Path};
 use bencode::{decode, Value};
 use clap::{Parser, Subcommand};
+use reqwest::StatusCode;
 use rusqlite::Connection;
-use dotenv::dotenv;
+use scraper::{Html, Selector};
+use regex::Regex;
 
 mod bencode;
 
@@ -226,13 +228,32 @@ fn scrape(db: Connection, destination: &String) {
     .expect("query_map")
     .filter_map(|f| f.ok());
 
+    let forum_id_re = Regex::new(".+f=(\\d+)").unwrap();
     for torrent in torrents {
-        dbg!(torrent.id, torrent.publisher_url);
+        let response = reqwest::blocking::get(torrent.publisher_url).unwrap();
+        if response.status() != StatusCode::OK {
+            eprintln!("torrent {} request error", torrent.id);
+        }
+
+        let document = Html::parse_document(&response.text().unwrap());
+        let selector = Selector::parse("td.nav").unwrap();
+        let selected = document.select(&selector);
+        
+        let topics = selected.into_iter().nth(0).unwrap();
+        let topic = topics.children().nth(5).unwrap();
+        let forum_link = topic.value().as_element().unwrap().attr("href").unwrap();
+
+        let forum_id: i64 = str::parse(forum_id_re
+            .captures(forum_link)
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .as_str()
+        ).unwrap();
     }
 }
 
 fn main() {
-    dotenv().ok();
     let args = Args::parse();
     let db = Connection::open(args.db_path).unwrap();
 
