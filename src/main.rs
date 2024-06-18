@@ -1,7 +1,8 @@
-use std::{fs::{self, DirEntry}, path::Path};
+use std::{fs::{self, DirEntry}, path::Path, env};
 use bencode::{decode, Value};
 use clap::{Parser, Subcommand};
 use rusqlite::Connection;
+use dotenv::dotenv;
 
 mod bencode;
 
@@ -205,6 +206,7 @@ fn index(db: Connection, path: &String) {
 }
 
 fn main() {
+    dotenv().ok();
     let args = Args::parse();
     let db = Connection::open(args.db_path).unwrap();
 

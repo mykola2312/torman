@@ -29,9 +29,11 @@ CREATE TABLE "file" (
 CREATE TABLE "category" (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    title           TEXT    NOT NULL,
+    title           TEXT,
     forum_id        INTEGER NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_category_forum_id ON "category"("forum_id");
 
 CREATE TABLE "torrent_category" (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
